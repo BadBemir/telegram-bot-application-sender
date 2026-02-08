@@ -1,50 +1,76 @@
 <?php
 
-define('BOT_TOKEN',     '8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g');
-define('GROUP_CHAT_ID', '-1003850836793');
+define("BOT_TOKEN", "8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g");
+define("GROUP_CHAT_ID", "-1003850836793");
 
-$success = isset($_GET['success']);
-$error   = false;
+$success = isset($_GET["success"]);
+$error_msg = ""; // ← теперь будем хранить текст ошибки
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $name = trim($_POST["name"] ?? "—");
+    $phone = trim($_POST["phone"] ?? "—");
+    $message = trim($_POST["message"] ?? "—");
+    $room = trim($_POST["room"] ?? "—");
 
-    $name    = trim($_POST['name']    ?? '—');
-    $phone   = trim($_POST['phone']   ?? '—');
-    $message = trim($_POST['message'] ?? '—');
-    $room    = trim($_POST['room']    ?? '—');
+    $text =
+        "🆕 Новая заявка с сайта!\n\n" .
+        "👤 Имя: <b>" .
+        htmlspecialchars($name) .
+        "</b>\n" .
+        "📞 Телефон: <b>" .
+        htmlspecialchars($phone) .
+        "</b>\n" .
+        "💬 Сообщение:\n" .
+        htmlspecialchars($message) .
+        "\n" .
+        "🏢 Кабинет: <b>" .
+        htmlspecialchars($room) .
+        "</b>\n\n" .
+        "\n" .
+        "Статус: <b>new</b> • " .
+        date("d.m.Y H:i");
 
-    $text = "Новая заявка с сайта!\n\n" .
-            "👤 Имя: <b>"       . htmlspecialchars($name)    . "</b>\n" .
-            "📞 Телефон: <b>"    . htmlspecialchars($phone)   . "</b>\n" .
-            "💬 Сообщение:\n"    . htmlspecialchars($message) . "\n" .
-            "🏢 Кабинет: <b>"    . htmlspecialchars($room)    . "</b>";
+    $reply_markup = json_encode([
+        "inline_keyboard" => [
+            [
+                [
+                    "text" => "🚀 Взять в работу",
+                    "callback_data" => "set_inwork",
+                ],
+                [
+                    "text" => "❌ Отклонить сразу",
+                    "callback_data" => "set_rejected",
+                ],
+            ],
+        ],
+    ]);
 
     $url = "https://api.telegram.org/bot" . BOT_TOKEN . "/sendMessage";
 
     $data = [
-        'chat_id'    => GROUP_CHAT_ID,
-        'text'       => $text,
-        'parse_mode' => 'HTML',
+        "chat_id" => GROUP_CHAT_ID,
+        "text" => $text,
+        "parse_mode" => "HTML",
+        "reply_markup" => $reply_markup,
     ];
 
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
+    $ch = curl_init("https://api.telegram.org/bot" . BOT_TOKEN . "/sendMessage");
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
     $result = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
     $response = json_decode($result, true);
 
-    if ($http_code === 200 && isset($response['ok']) && $response['ok'] === true) {
-        header("Location: " . $_SERVER['PHP_SELF'] . "?success=1");
+    if ($http_code === 200 && ($response['ok'] ?? false)) {
+        header("Location: " . $_SERVER['REQUEST_URI'] . "?success=1");
         exit;
     } else {
-        $error = true;
+        $error_msg = 'Ошибка отправки: ' . ($response['description'] ?? 'неизвестно') . ' (HTTP ' . $http_code . ')';
     }
-}
 ?>
 
 <!DOCTYPE html>
@@ -64,23 +90,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <script>
-            // Исчезновение через 2 секунды
-            setTimeout(function() {
+            setTimeout(() => {
                 const msg = document.getElementById('success-msg');
                 if (msg) {
                     msg.classList.add('fade-out');
-                    setTimeout(() => {
-                        msg.style.display = 'none';
-                    }, 700); 
+                    setTimeout(() => msg.style.display = 'none', 700);
                 }
             }, 2000);
         </script>
     <?php endif; ?>
 
-    <?php if ($error): ?>
+    <?php if ($error_msg): ?>
         <div class="message error">
-            <h2>Ошибка при отправке заявки</h2>
-            <p>Пожалуйста, попробуйте позже или свяжитесь с нами другим способом.</p>
+            <h2>Ошибка отправки</h2>
+            <p><?= htmlspecialchars($error_msg) ?></p>
+            <p>Попробуйте позже или свяжитесь с нами напрямую.</p>
         </div>
     <?php endif; ?>
 
@@ -93,4 +117,4 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 
 </body>
-</html> 
+</html>
