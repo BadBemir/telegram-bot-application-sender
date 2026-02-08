@@ -4,7 +4,7 @@ define("BOT_TOKEN", "8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g");
 define("GROUP_CHAT_ID", "-1003850836793");
 
 $success = isset($_GET["success"]);
-$error_msg = ""; // ← теперь будем хранить текст ошибки
+$error_msg = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $name = trim($_POST["name"] ?? "—");
@@ -26,10 +26,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         "🏢 Кабинет: <b>" .
         htmlspecialchars($room) .
         "</b>\n\n" .
-        "\n" .
+        "───────────────\n" .
         "Статус: <b>new</b> • " .
         date("d.m.Y H:i");
 
+    // Начальная клавиатура для новой заявки
     $reply_markup = json_encode([
         "inline_keyboard" => [
             [
@@ -54,23 +55,37 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         "reply_markup" => $reply_markup,
     ];
 
-    $ch = curl_init("https://api.telegram.org/bot" . BOT_TOKEN . "/sendMessage");
-    curl_setopt($ch, CURLOPT_POST, 1);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 12);
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => http_build_query($data),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_TIMEOUT => 15,
+        CURLOPT_SSL_VERIFYPEER => true,
+    ]);
+
     $result = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curl_err = curl_error($ch);
     curl_close($ch);
 
     $response = json_decode($result, true);
 
-    if ($http_code === 200 && ($response['ok'] ?? false)) {
-        header("Location: " . $_SERVER['REQUEST_URI'] . "?success=1");
-        exit;
-    } else {
-        $error_msg = 'Ошибка отправки: ' . ($response['description'] ?? 'неизвестно') . ' (HTTP ' . $http_code . ')';
+    if ($http_code === 200 && ($response["ok"] ?? false) === true) {
+        header("Location: " . $_SERVER["REQUEST_URI"] . "?success=1");
+        exit();
     }
+
+    // Если ошибка — показываем пользователю
+    $error_msg = "Не удалось отправить заявку.";
+    if ($curl_err) {
+        $error_msg .= " (cURL: " . $curl_err . ")";
+    } elseif (isset($response["description"])) {
+        $error_msg .= " (" . $response["description"] . ")";
+    } elseif ($http_code > 0) {
+        $error_msg .= " (HTTP " . $http_code . ")";
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -94,9 +109,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 const msg = document.getElementById('success-msg');
                 if (msg) {
                     msg.classList.add('fade-out');
-                    setTimeout(() => msg.style.display = 'none', 700);
+                    setTimeout(() => msg.style.display = 'none', 800);
                 }
-            }, 2000);
+            }, 2200);
         </script>
     <?php endif; ?>
 
@@ -104,7 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <div class="message error">
             <h2>Ошибка отправки</h2>
             <p><?= htmlspecialchars($error_msg) ?></p>
-            <p>Попробуйте позже или свяжитесь с нами напрямую.</p>
+            <p>Попробуйте позже или напишите нам напрямую.</p>
         </div>
     <?php endif; ?>
 
