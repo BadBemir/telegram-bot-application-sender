@@ -21,7 +21,6 @@ if ($chat_id != GROUP_CHAT_ID || $message_id <= 0) {
     exit();
 }
 
-// Поддерживаемые действия
 $action_map = [
     "set_new" => "new",
     "set_inwork" => "inwork",
@@ -36,7 +35,7 @@ if (!preg_match('/^set_(\w+)$/', $data, $m) || !isset($action_map[$m[0]])) {
 
 $new_status = $action_map[$m[0]];
 
-// Текущий статус из текста
+// Текущий статус (для проверки повторного нажатия)
 $current_status = "new";
 if (
     preg_match(
@@ -53,7 +52,7 @@ if ($current_status === $new_status) {
     exit();
 }
 
-// Новый текст сообщения
+// Формируем новый статус
 $labels = [
     "new" => "🆕 Новая",
     "inwork" => "🔄 В работе",
@@ -67,10 +66,13 @@ $status_line =
     date("d.m.Y H:i") .
     ($username ? " @$username" : "");
 
-$main = preg_replace('/───────────────.*$/s', "", $cb["message"]["text"] ?? "");
-$main = rtrim($main);
+// Удаляем старую часть со статусом (всё после последней разделительной линии)
+$original_text = $cb["message"]["text"] ?? "";
+$main_content = preg_replace('/\n*───────────────.*$/s', "", $original_text);
+$main_content = rtrim($main_content);
 
-$new_text = $main . "\n\n───────────────\n" . $status_line;
+// Собираем чистый текст + новая строка статуса
+$new_text = $main_content . "\n\n───────────────\n" . $status_line;
 
 // Новая клавиатура
 $keyboard = get_keyboard($new_status);
@@ -123,20 +125,23 @@ function editMessage(
     string $text,
     string $reply_markup,
 ): void {
-    $url = "https://api.telegram.org/bot" . BOT_TOKEN . "/editMessageText";
-
-    curl_setopt_array($ch = curl_init($url), [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => http_build_query([
-            "chat_id" => $chat_id,
-            "message_id" => $msg_id,
-            "text" => $text,
-            "parse_mode" => "HTML",
-            "reply_markup" => $reply_markup,
-        ]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 10,
-    ]);
+    curl_setopt_array(
+        $ch = curl_init(
+            "https://api.telegram.org/bot" . BOT_TOKEN . "/editMessageText",
+        ),
+        [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query([
+                "chat_id" => $chat_id,
+                "message_id" => $msg_id,
+                "text" => $text,
+                "parse_mode" => "HTML",
+                "reply_markup" => $reply_markup,
+            ]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 10,
+        ],
+    );
 
     curl_exec($ch);
     curl_close($ch);
@@ -144,18 +149,21 @@ function editMessage(
 
 function answerCallback(string $id, string $text = ""): void
 {
-    $url = "https://api.telegram.org/bot" . BOT_TOKEN . "/answerCallbackQuery";
-
-    curl_setopt_array($ch = curl_init($url), [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => http_build_query([
-            "callback_query_id" => $id,
-            "text" => $text,
-            "show_alert" => false,
-        ]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 6,
-    ]);
+    curl_setopt_array(
+        $ch = curl_init(
+            "https://api.telegram.org/bot" . BOT_TOKEN . "/answerCallbackQuery",
+        ),
+        [
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => http_build_query([
+                "callback_query_id" => $id,
+                "text" => $text,
+                "show_alert" => false,
+            ]),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 6,
+        ],
+    );
 
     curl_exec($ch);
     curl_close($ch);
