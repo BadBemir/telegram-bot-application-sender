@@ -3,6 +3,9 @@
 define("BOT_TOKEN", "8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g");
 define("GROUP_CHAT_ID", "-1003850836793");
 
+
+date_default_timezone_set('Asia/Vladivostok');
+
 $update = json_decode(file_get_contents("php://input"), true) ?? [];
 
 if (empty($update["callback_query"])) {
@@ -22,10 +25,10 @@ if ($chat_id != GROUP_CHAT_ID || $message_id <= 0) {
 }
 
 $action_map = [
-    "set_new" => "new",
-    "set_inwork" => "inwork",
-    "set_done" => "done",
-    "set_rejected" => "rejected",
+    "set_new"     => "new",
+    "set_inwork"  => "inwork",
+    "set_done"    => "done",
+    "set_rejected"=> "rejected",
 ];
 
 if (!preg_match('/^set_(\w+)$/', $data, $m) || !isset($action_map[$m[0]])) {
@@ -35,15 +38,9 @@ if (!preg_match('/^set_(\w+)$/', $data, $m) || !isset($action_map[$m[0]])) {
 
 $new_status = $action_map[$m[0]];
 
-// Текущий статус (для проверки повторного нажатия)
+// Текущий статус
 $current_status = "new";
-if (
-    preg_match(
-        "/Статус:\s*<b>(\w+)<\/b>/",
-        $cb["message"]["text"] ?? "",
-        $match,
-    )
-) {
+if (preg_match("/Статус:\s*<b>(\w+)<\/b>/", $cb["message"]["text"] ?? "", $match)) {
     $current_status = $match[1];
 }
 
@@ -54,25 +51,22 @@ if ($current_status === $new_status) {
 
 // Формируем новый статус
 $labels = [
-    "new" => "🆕 Новая",
-    "inwork" => "🔄 В работе",
-    "done" => "✅ Выполнено",
+    "new"      => "🆕 Новая",
+    "inwork"   => "🔄 В работе",
+    "done"     => "✅ Выполнено",
     "rejected" => "❌ Отклонено",
 ];
 
-$status_line =
-    $labels[$new_status] .
-    " • " .
-    date("d.m.Y H:i") .
-    ($username ? " @$username" : "");
+$status_line = $labels[$new_status] . " • " . date("d.m.Y H:i") . ($username ? " @$username" : "");
 
-// Удаляем старую часть со статусом (всё после последней разделительной линии)
+// Удаляем старую часть со статусом
 $original_text = $cb["message"]["text"] ?? "";
-$main_content = preg_replace('/\n*───────────────.*$/s', "", $original_text);
+// Удаляем всё после последней пустой строки или сразу после основного текста
+$main_content = preg_replace('/\n{2,}.*$/s', '', $original_text);
 $main_content = rtrim($main_content);
 
-// Собираем чистый текст + новая строка статуса
-$new_text = $main_content . "\n\n───────────────\n" . $status_line;
+// Новый текст — основной контент + статус без лишних линий
+$new_text = $main_content . "\n\n" . $status_line;
 
 // Новая клавиатура
 $keyboard = get_keyboard($new_status);
@@ -83,7 +77,7 @@ editMessage($chat_id, $message_id, $new_text, $keyboard);
 // Подтверждение
 answerCallback($cb["id"], "Статус → " . $labels[$new_status]);
 
-// ────────────────────────────────────────────────
+
 
 function get_keyboard(string $status): string
 {
@@ -93,25 +87,19 @@ function get_keyboard(string $status): string
         "inline_keyboard" => match ($status) {
             "new" => [
                 [
-                    [
-                        "text" => "Взять в работу",
-                        "callback_data" => $p . "inwork",
-                    ],
-                    ["text" => "Отклонить", "callback_data" => $p . "rejected"],
+                    ["text" => "Взять в работу",   "callback_data" => $p . "inwork"],
+                    ["text" => "Отклонить",        "callback_data" => $p . "rejected"],
                 ],
             ],
             "inwork" => [
                 [
-                    ["text" => "Выполнено", "callback_data" => $p . "done"],
-                    ["text" => "Отклонить", "callback_data" => $p . "rejected"],
+                    ["text" => "Выполнено",        "callback_data" => $p . "done"],
+                    ["text" => "Отклонить",        "callback_data" => $p . "rejected"],
                 ],
             ],
             "done", "rejected" => [
                 [
-                    [
-                        "text" => "Вернуть в работу",
-                        "callback_data" => $p . "inwork",
-                    ],
+                    ["text" => "Вернуть в работу", "callback_data" => $p . "inwork"],
                 ],
             ],
             default => [],
@@ -119,28 +107,22 @@ function get_keyboard(string $status): string
     ]);
 }
 
-function editMessage(
-    int $chat_id,
-    int $msg_id,
-    string $text,
-    string $reply_markup,
-): void {
+function editMessage(int $chat_id, int $msg_id, string $text, string $reply_markup): void
+{
     curl_setopt_array(
-        $ch = curl_init(
-            "https://api.telegram.org/bot" . BOT_TOKEN . "/editMessageText",
-        ),
+        $ch = curl_init("https://api.telegram.org/bot" . BOT_TOKEN . "/editMessageText"),
         [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
-                "chat_id" => $chat_id,
-                "message_id" => $msg_id,
-                "text" => $text,
-                "parse_mode" => "HTML",
+                "chat_id"      => $chat_id,
+                "message_id"   => $msg_id,
+                "text"         => $text,
+                "parse_mode"   => "HTML",
                 "reply_markup" => $reply_markup,
             ]),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,
-        ],
+        ]
     );
 
     curl_exec($ch);
@@ -150,19 +132,17 @@ function editMessage(
 function answerCallback(string $id, string $text = ""): void
 {
     curl_setopt_array(
-        $ch = curl_init(
-            "https://api.telegram.org/bot" . BOT_TOKEN . "/answerCallbackQuery",
-        ),
+        $ch = curl_init("https://api.telegram.org/bot" . BOT_TOKEN . "/answerCallbackQuery"),
         [
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => http_build_query([
                 "callback_query_id" => $id,
-                "text" => $text,
-                "show_alert" => false,
+                "text"              => $text,
+                "show_alert"        => false,
             ]),
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 6,
-        ],
+        ]
     );
 
     curl_exec($ch);

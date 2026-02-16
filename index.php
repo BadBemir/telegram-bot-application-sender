@@ -3,6 +3,8 @@
 define("BOT_TOKEN", "8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g");
 define("GROUP_CHAT_ID", "-1003850836793");
 
+date_default_timezone_set('Asia/Vladivostok');
+
 $success = isset($_GET["success"]);
 $error_msg = "";
 
