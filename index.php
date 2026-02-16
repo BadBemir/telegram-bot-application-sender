@@ -3,31 +3,29 @@
 define("BOT_TOKEN", "8548197752:AAFw4PyjB0CglbAmGvpJG-4cQ_fvsYgeA5g");
 define("GROUP_CHAT_ID", "-1003850836793");
 
-date_default_timezone_set('Asia/Vladivostok');
+
+function vladivostok_time() {
+    return gmdate('d.m.Y H:i', time() + 10 * 3600);
+}
 
 $success = isset($_GET["success"]);
 $error_msg = "";
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $name = trim($_POST["name"] ?? "—");
+    $name  = trim($_POST["name"]  ?? "—");
     $phone = trim($_POST["phone"] ?? "—");
-    $msg = trim($_POST["message"] ?? "—");
-    $room = trim($_POST["room"] ?? "—");
+    $msg   = trim($_POST["message"] ?? "—");
+    $room  = trim($_POST["room"]  ?? "—");
+
+    $time_str = vladivostok_time();
 
     $text =
         "🆕 Новая заявка с сайта!\n\n" .
-        "👤 Имя: <b>" .
-        htmlspecialchars($name) .
-        "</b>\n" .
-        "📞 Телефон: <b>" .
-        htmlspecialchars($phone) .
-        "</b>\n" .
-        "💬 Сообщение:\n" .
-        htmlspecialchars($msg) .
-        "\n" .
-        "🏢 Кабинет: <b>" .
-        htmlspecialchars($room) .
-        "</b>\n\n";
+        "👤 Имя: <b>" . htmlspecialchars($name) . "</b>\n" .
+        "📞 Телефон: <b>" . htmlspecialchars($phone) . "</b>\n" .
+        "💬 Сообщение:\n" . htmlspecialchars($msg) . "\n" .
+        "🏢 Кабинет: <b>" . htmlspecialchars($room) . "</b>\n\n" .
+        "Время подачи: " . $time_str . "\n";
 
     $reply_markup = json_encode([
         "inline_keyboard" => [
@@ -48,15 +46,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => http_build_query([
-            "chat_id" => GROUP_CHAT_ID,
-            "text" => $text,
-            "parse_mode" => "HTML",
-            "reply_markup" => $reply_markup,
+        CURLOPT_POST            => true,
+        CURLOPT_POSTFIELDS      => http_build_query([
+            "chat_id"     => GROUP_CHAT_ID,
+            "text"        => $text,
+            "parse_mode"  => "HTML",
+            "reply_markup"=> $reply_markup,
         ]),
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 12,
+        CURLOPT_RETURNTRANSFER  => true,
+        CURLOPT_TIMEOUT         => 12,
     ]);
 
     $result = curl_exec($ch);
@@ -88,7 +86,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Форма заявки</title>
     <link rel="stylesheet" href="style.css">
-  
 </head>
 <body>
 
@@ -121,7 +118,7 @@ setTimeout(() => {
     <input style="font-family: Arial, Helvetica, sans-serif;" type="text"     name="name"    placeholder="Ваше имя"     required>
     <input style="font-family: Arial, Helvetica, sans-serif;" type="tel"      name="phone"   placeholder="Телефон"      required pattern="\+?[0-9\s\-\(\)]{7,}" title="Введите корректный номер">
     <input style="font-family: Arial, Helvetica, sans-serif;" type="text"     name="room"    placeholder="Кабинет"      maxlength="4" required inputmode="numeric" pattern="[0-9A-Za-z\s-]*">
-    <textarea style='resize: none; font-family: Arial, Helvetica, sans-serif;' name="message" rows="5" placeholder="Что вас интересует?" required></textarea>
+    <textarea style="resize: none; font-family: Arial, Helvetica, sans-serif;" name="message" rows="5" placeholder="Что вас интересует?" required></textarea>
     <button type="submit">Отправить заявку</button>
 </form>
 
